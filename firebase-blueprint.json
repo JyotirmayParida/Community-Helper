@@ -1,0 +1,113 @@
+{
+  "entities": {
+    "Report": {
+      "title": "Report",
+      "description": "Citizen reported issue.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "citizenId": { "type": "string" },
+        "mediaUrl": { "type": "string" },
+        "geo": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          },
+          "required": ["lat", "lng"]
+        },
+        "category": { "type": "string" },
+        "severity": { "type": "string" },
+        "confidence": { "type": "number" },
+        "status": {
+          "type": "string",
+          "enum": ["submitted", "categorized", "needs_review", "routed", "in_progress", "resolved", "escalated"]
+        },
+        "duplicateOf": { "type": ["string", "null"] },
+        "department": { "type": ["string", "null"] },
+        "priority": { "type": ["string", "null"] },
+        "history": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "status": { "type": "string" },
+              "timestamp": { "type": "string" },
+              "note": { "type": "string" }
+            },
+            "required": ["status", "timestamp", "note"]
+          }
+        },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "citizenId", "category", "severity", "confidence", "status", "history", "createdAt", "updatedAt"]
+    },
+    "Config": {
+      "title": "Config",
+      "description": "Global settings and thresholds configuration.",
+      "type": "object",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "severityLevels": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "slaHoursByPriority": {
+          "type": "object",
+          "additionalProperties": { "type": "number" }
+        }
+      },
+      "required": ["categories", "severityLevels", "slaHoursByPriority"]
+    },
+    "Department": {
+      "title": "Department",
+      "description": "City department details.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "contactInfo": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "contactInfo"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Citizen, verifier, or admin user profile.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": {
+          "type": "string",
+          "enum": ["citizen", "verifier", "admin"]
+        },
+        "points": { "type": "number" }
+      },
+      "required": ["id", "email", "displayName", "role", "points"]
+    }
+  },
+  "firestore": {
+    "/reports/{reportId}": {
+      "schema": "Report",
+      "description": "Citizen submitted issue reports."
+    },
+    "/config/{configId}": {
+      "schema": "Config",
+      "description": "Global application configuration data."
+    },
+    "/departments/{departmentId}": {
+      "schema": "Department",
+      "description": "City departments responsible for resolving categories of issues."
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Registered application users."
+    }
+  }
+}
