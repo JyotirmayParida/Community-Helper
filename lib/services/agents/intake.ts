@@ -83,7 +83,7 @@ export async function runIntakeAgent(payload: IntakePayload): Promise<Report> {
 
     // 4. Call Gemini Vision API
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.5-flash',
       contents: [
         {
           inlineData: {
