@@ -32,6 +32,8 @@ export async function runIntakeAgent(payload: IntakePayload): Promise<Report> {
     updatedAt: now,
   };
 
+  let succeededWithModel = '';
+
   try {
     // 1. Fetch config from Firestore (adminDb)
     const configSnap = await adminDb.collection('config').doc('system_config').get();
@@ -106,6 +108,7 @@ export async function runIntakeAgent(payload: IntakePayload): Promise<Report> {
             responseMimeType: 'application/json',
           },
         });
+        succeededWithModel = 'gemini-3.5-flash';
         break; // Success, exit retry loop
       } catch (err: any) {
         const isTransient = (
@@ -115,17 +118,46 @@ export async function runIntakeAgent(payload: IntakePayload): Promise<Report> {
           /503|unavailable|429|rate limit|resource exhausted/i.test(err.message || '')
         );
 
-        if (isTransient && attempts < maxAttempts) {
-          retriesAttempted++;
-          console.warn(`[IntakeAgent] Transient error on attempt ${attempts} (${err.message}). Retrying in ${delayMs}ms...`);
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-          delayMs += 500; // slightly increase delay (e.g. 1.0s, 1.5s, etc.)
-        } else {
-          if (retriesAttempted > 0) {
-            throw new Error(`${err.message || 'Unknown error'} (Retries attempted before fallback: ${retriesAttempted})`);
+        if (isTransient) {
+          if (attempts < maxAttempts) {
+            retriesAttempted++;
+            console.warn(`[IntakeAgent] Transient error on attempt ${attempts} (${err.message}). Retrying in ${delayMs}ms...`);
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
+            delayMs += 500; // slightly increase delay (e.g. 1.0s, 1.5s, etc.)
+          } else {
+            console.warn(`[IntakeAgent] All ${maxAttempts} attempts on gemini-3.5-flash exhausted due to transient errors. Proceeding to gemini-flash-latest fallback...`);
+            break;
           }
+        } else {
+          // Non-transient error, fail immediately without trying fallback model
           throw err;
         }
+      }
+    }
+
+    // If we didn't succeed with gemini-3.5-flash, try gemini-flash-latest as a final fallback
+    if (!succeededWithModel) {
+      try {
+        console.log(`[IntakeAgent] Attempting one final fallback with gemini-flash-latest...`);
+        response = await ai.models.generateContent({
+          model: 'gemini-flash-latest',
+          contents: [
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: mimeType,
+              },
+            },
+            geminiPrompt,
+          ],
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+        succeededWithModel = 'gemini-flash-latest';
+      } catch (fallbackErr: any) {
+        // If the fallback also fails, we throw an error with details about retries and fallback failure
+        throw new Error(`All attempts failed. gemini-3.5-flash retries exhausted (${retriesAttempted} retries attempted). gemini-flash-latest fallback failed with: ${fallbackErr.message || 'Unknown error'}`);
       }
     }
 
@@ -163,7 +195,7 @@ export async function runIntakeAgent(payload: IntakePayload): Promise<Report> {
       report.history.push({
         status: STATUS_LIFECYCLE.CATEGORIZED,
         timestamp: new Date().toISOString(),
-        note: `AI Categorization Succeeded (Confidence: ${(parsedConfidence * 100).toFixed(1)}%). Category: "${parsedCategory}", Severity: "${parsedSeverity}". Reasoning: ${reasoning}`,
+        note: `AI Categorization Succeeded (Model: ${succeededWithModel}, Confidence: ${(parsedConfidence * 100).toFixed(1)}%). Category: "${parsedCategory}", Severity: "${parsedSeverity}". Reasoning: ${reasoning}`,
       });
     } else {
       // UNSUCCESSFUL/LOW CONFIDENCE path
@@ -179,7 +211,7 @@ export async function runIntakeAgent(payload: IntakePayload): Promise<Report> {
       report.history.push({
         status: STATUS_LIFECYCLE.NEEDS_REVIEW,
         timestamp: new Date().toISOString(),
-        note: `Intake Agent: Moved to Needs Review. Cause: ${failureReason} (Confidence: ${(parsedConfidence * 100).toFixed(1)}%). Reasoning: ${reasoning}`,
+        note: `Intake Agent: Moved to Needs Review. Cause: ${failureReason} (Model: ${succeededWithModel}, Confidence: ${(parsedConfidence * 100).toFixed(1)}%). Reasoning: ${reasoning}`,
       });
     }
 
