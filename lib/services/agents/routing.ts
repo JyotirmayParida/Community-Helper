@@ -1,7 +1,6 @@
 import { Report, Department, SystemConfig } from '@/lib/types';
 import { STATUS_LIFECYCLE } from '@/lib/constants';
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { adminDb } from '@/lib/firebase-admin';
 
 export async function runRoutingAgent(report: Report): Promise<Report> {
   const now = new Date().toISOString();
@@ -11,27 +10,26 @@ export async function runRoutingAgent(report: Report): Promise<Report> {
   }
 
   try {
-    // 1. Fetch department for the report's category
-    const deptsRef = collection(db, 'departments');
-    const q = query(deptsRef, where('category', '==', report.category));
-    const querySnapshot = await getDocs(q);
+    // 1. Fetch department for the report's category using adminDb
+    const deptsSnap = await adminDb
+      .collection('departments')
+      .where('category', '==', report.category)
+      .get();
 
     let assignedDept: Department | null = null;
-    querySnapshot.forEach((docSnap) => {
+    deptsSnap.forEach((docSnap) => {
       assignedDept = docSnap.data() as Department;
     });
 
-    // If no specific department is found, assign general services
     if (assignedDept) {
       report.department = (assignedDept as Department).name;
     } else {
       report.department = 'General Services';
     }
 
-    // 2. Read config for SLA hours
-    const configRef = doc(db, 'config', 'system_config');
-    const configSnap = await getDoc(configRef);
-    if (!configSnap.exists()) {
+    // 2. Read config for SLA hours using adminDb
+    const configSnap = await adminDb.collection('config').doc('system_config').get();
+    if (!configSnap.exists) {
       throw new Error('Config collection is missing.');
     }
     const config = configSnap.data() as SystemConfig;
@@ -46,10 +44,9 @@ export async function runRoutingAgent(report: Report): Promise<Report> {
     report.history.push({
       status: STATUS_LIFECYCLE.ROUTED,
       timestamp: now,
-      note: `Report routed to department [${report.department}]. Priority: ${report.priority}. SLA: ${slaHours} hours.`,
+      note: `Routing Agent: Report routed to department [${report.department}]. Priority: ${report.priority}. SLA: ${slaHours} hours.`,
     });
 
-    report.updatedAt = now;
   } catch (error: any) {
     console.error('[RoutingAgent Error]', error);
     report.status = STATUS_LIFECYCLE.NEEDS_REVIEW;
@@ -58,8 +55,8 @@ export async function runRoutingAgent(report: Report): Promise<Report> {
       timestamp: now,
       note: `Routing failed: ${error?.message || 'Unknown error'}. Marked for review.`,
     });
-    report.updatedAt = now;
   }
 
+  report.updatedAt = now;
   return report;
 }

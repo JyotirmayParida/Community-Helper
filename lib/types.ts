@@ -4,6 +4,7 @@ export interface Report {
   id: string;
   citizenId: string;
   mediaUrl: string;
+  description?: string;
   geo: { lat: number; lng: number };
   category: string;
   severity: SeverityLevel;
@@ -37,3 +38,11 @@ export interface UserProfile {
   role: 'citizen' | 'verifier' | 'admin';
   points: number;
 }
+
+export interface IntakePayload {
+  citizenId: string;
+  mediaUrl: string;
+  geo: { lat: number; lng: number };
+  description?: string;
+}
+

@@ -1,7 +1,6 @@
 import { Report } from '@/lib/types';
 import { STATUS_LIFECYCLE } from '@/lib/constants';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { adminDb } from '@/lib/firebase-admin';
 
 // Haversine formula to compute distance in km
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -27,17 +26,21 @@ export async function runDedupAgent(report: Report): Promise<Report> {
   }
 
   try {
-    // We only dedup if the report has a valid status of 'submitted'
-    const reportsRef = collection(db, 'reports');
-    // Fetch reports with the same category that are active (not resolved and not duplicates themselves)
-    const q = query(reportsRef, where('category', '==', report.category));
-    const querySnapshot = await getDocs(q);
+    // Query active reports of the same category using adminDb
+    const querySnapshot = await adminDb
+      .collection('reports')
+      .where('category', '==', report.category)
+      .get();
 
     let foundDuplicate: Report | null = null;
 
     querySnapshot.forEach((docSnap) => {
       const existing = docSnap.data() as Report;
-      if (existing.id !== report.id && !existing.duplicateOf && existing.status !== STATUS_LIFECYCLE.RESOLVED) {
+      if (
+        existing.id !== report.id &&
+        !existing.duplicateOf &&
+        existing.status !== STATUS_LIFECYCLE.RESOLVED
+      ) {
         const dist = calculateDistance(
           report.geo.lat,
           report.geo.lng,
@@ -53,22 +56,19 @@ export async function runDedupAgent(report: Report): Promise<Report> {
 
     if (foundDuplicate) {
       report.duplicateOf = (foundDuplicate as Report).id;
-      report.status = STATUS_LIFECYCLE.CATEGORIZED;
       report.history.push({
-        status: STATUS_LIFECYCLE.CATEGORIZED,
+        status: report.status, // Do not change status!
         timestamp: now,
-        note: `Dedup check completed. Flagged as duplicate of report ID: ${report.duplicateOf}.`,
+        note: `Dedup Agent: Flagged as duplicate of report ID: ${report.duplicateOf}.`,
       });
     } else {
-      report.status = STATUS_LIFECYCLE.CATEGORIZED;
       report.history.push({
-        status: STATUS_LIFECYCLE.CATEGORIZED,
+        status: report.status, // Do not change status!
         timestamp: now,
-        note: 'Dedup check completed. No near-duplicates found. Status set to categorized.',
+        note: 'Dedup Agent: Completed. No near-duplicates found.',
       });
     }
 
-    report.updatedAt = now;
   } catch (error: any) {
     console.error('[DedupAgent Error]', error);
     report.status = STATUS_LIFECYCLE.NEEDS_REVIEW;
@@ -77,8 +77,8 @@ export async function runDedupAgent(report: Report): Promise<Report> {
       timestamp: now,
       note: `Deduplication check failed: ${error?.message || 'Unknown error'}. Marked for review.`,
     });
-    report.updatedAt = now;
   }
 
+  report.updatedAt = now;
   return report;
 }

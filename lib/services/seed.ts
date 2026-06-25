@@ -1,14 +1,14 @@
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { adminDb } from '../firebase-admin';
+import { SystemConfig } from '../types';
 
 export async function seedDatabase() {
   try {
     // 1. Seed Config (system_config)
-    const configRef = doc(db, 'config', 'system_config');
-    const configSnap = await getDoc(configRef);
+    const configRef = adminDb.collection('config').doc('system_config');
+    const configSnap = await configRef.get();
 
-    if (!configSnap.exists()) {
-      await setDoc(configRef, {
+    if (!configSnap.exists) {
+      await configRef.set({
         categories: [
           'Pothole',
           'Streetlight Out',
@@ -26,7 +26,7 @@ export async function seedDatabase() {
           'SEVERE': 8
         }
       });
-      console.log('Seeded config successfully.');
+      console.log('Seeded config successfully via Admin SDK.');
     }
 
     // 2. Seed Departments
@@ -39,13 +39,13 @@ export async function seedDatabase() {
     ];
 
     for (const dept of departments) {
-      const deptRef = doc(db, 'departments', dept.id);
-      const deptSnap = await getDoc(deptRef);
-      if (!deptSnap.exists()) {
-        await setDoc(deptRef, dept);
+      const deptRef = adminDb.collection('departments').doc(dept.id);
+      const deptSnap = await deptRef.get();
+      if (!deptSnap.exists) {
+        await deptRef.set(dept);
       }
     }
-    console.log('Seeded departments successfully.');
+    console.log('Seeded departments successfully via Admin SDK.');
   } catch (error) {
     console.error('Failed to seed database:', error);
   }

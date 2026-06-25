@@ -8,8 +8,13 @@ export async function runEscalationAgent(report: Report): Promise<Report> {
     let shouldEscalate = false;
     let reason = '';
 
-    // Condition 1: If report has SEVERE severity and is not yet resolved, escalate it
-    if (report.severity === 'SEVERE' && report.status !== STATUS_LIFECYCLE.RESOLVED && report.status !== STATUS_LIFECYCLE.ESCALATED) {
+    // If report has SEVERE severity and is not yet resolved/escalated, escalate it
+    if (
+      report.severity === 'SEVERE' &&
+      report.status !== STATUS_LIFECYCLE.RESOLVED &&
+      report.status !== STATUS_LIFECYCLE.ESCALATED &&
+      report.status !== STATUS_LIFECYCLE.NEEDS_REVIEW
+    ) {
       shouldEscalate = true;
       reason = 'Immediate escalation triggered due to SEVERE severity rating.';
     }

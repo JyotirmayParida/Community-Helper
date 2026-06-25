@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { seedDatabase } from '@/lib/services/seed';
 import { processReportLifecycle } from '@/lib/services/agents/manager';
 import { Report } from '@/lib/types';
@@ -22,7 +21,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 
 export async function GET(req: NextRequest) {
   try {
-    // Ensure configuration is seeded
+    // Seed system config and departments if not present
     await seedDatabase();
 
     const { searchParams } = new URL(req.url);
@@ -31,21 +30,20 @@ export async function GET(req: NextRequest) {
     const lngParam = searchParams.get('lng');
     const radiusParam = searchParams.get('radius'); // in km
 
-    const reportsRef = collection(db, 'reports');
-    let q = query(reportsRef);
+    let queryRef: any = adminDb.collection('reports');
 
     if (statusParam) {
-      q = query(reportsRef, where('status', '==', statusParam));
+      queryRef = queryRef.where('status', '==', statusParam);
     }
 
-    const querySnapshot = await getDocs(q);
+    const snapshot = await queryRef.get();
     const reports: Report[] = [];
 
-    querySnapshot.forEach((docSnap) => {
+    snapshot.forEach((docSnap: any) => {
       reports.push(docSnap.data() as Report);
     });
 
-    // Apply geo-radius filtering in memory if parameters are provided
+    // Apply geo-radius filtering in-memory if coordinates are supplied
     if (latParam && lngParam && radiusParam) {
       const lat = parseFloat(latParam);
       const lng = parseFloat(lngParam);
@@ -70,32 +68,30 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Ensure configuration is seeded
+    // Seed system config and departments if not present
     await seedDatabase();
 
     const body = await req.json();
-    const { citizenId, mediaUrl, geo, category, severity, confidence } = body;
+    const { citizenId, mediaUrl, geo, description } = body;
 
-    if (!citizenId || !category || !severity) {
+    if (!citizenId || !mediaUrl) {
       return NextResponse.json(
-        { error: 'Missing required fields: citizenId, category, severity are mandatory.' },
+        { error: 'Missing required parameters: citizenId and mediaUrl are mandatory.' },
         { status: 400 }
       );
     }
 
-    // Run the full multi-agent pipeline
+    // Process the citizen submission through the multi-agent pipeline
     const processedReport = await processReportLifecycle({
       citizenId,
-      mediaUrl: mediaUrl || '',
-      geo: geo || { lat: 37.7749, lng: -122.4194 }, // default coordinates if none provided
-      category,
-      severity,
-      confidence: typeof confidence === 'number' ? confidence : 1.0,
+      mediaUrl,
+      geo: geo || { lat: 37.7749, lng: -122.4194 },
+      description: description || '',
     });
 
     return NextResponse.json(processedReport, { status: 201 });
   } catch (error: any) {
     console.error('[POST /api/reports Error]', error);
-    return NextResponse.json({ error: error?.message || 'Failed to create report' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Failed to submit report' }, { status: 500 });
   }
 }

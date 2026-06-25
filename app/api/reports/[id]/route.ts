@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { adminDb } from '@/lib/firebase-admin';
 import { Report } from '@/lib/types';
 
 export async function GET(
@@ -9,10 +8,9 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const reportRef = doc(db, 'reports', id);
-    const reportSnap = await getDoc(reportRef);
+    const reportSnap = await adminDb.collection('reports').doc(id).get();
 
-    if (!reportSnap.exists()) {
+    if (!reportSnap.exists) {
       return NextResponse.json({ error: 'Report not found' }, { status: 404 });
     }
 
