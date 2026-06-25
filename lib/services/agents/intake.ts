@@ -81,24 +81,55 @@ export async function runIntakeAgent(payload: IntakePayload): Promise<Report> {
       }
     `;
 
-    // 4. Call Gemini Vision API
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.5-flash',
-      contents: [
-        {
-          inlineData: {
-            data: base64Data,
-            mimeType: mimeType,
-          },
-        },
-        geminiPrompt,
-      ],
-      config: {
-        responseMimeType: 'application/json',
-      },
-    });
+    // 4. Call Gemini Vision API with retry mechanism for transient errors (503 and 429)
+    let response: any;
+    let attempts = 0;
+    const maxAttempts = 3;
+    let delayMs = 1000; // start delay at 1-2 seconds (1000ms)
+    let retriesAttempted = 0;
 
-    const responseText = response.text;
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        response = await ai.models.generateContent({
+          model: 'gemini-3.5-flash',
+          contents: [
+            {
+              inlineData: {
+                data: base64Data,
+                mimeType: mimeType,
+              },
+            },
+            geminiPrompt,
+          ],
+          config: {
+            responseMimeType: 'application/json',
+          },
+        });
+        break; // Success, exit retry loop
+      } catch (err: any) {
+        const isTransient = (
+          err.status === 503 || err.status === 429 ||
+          err.statusCode === 503 || err.statusCode === 429 ||
+          err.code === 503 || err.code === 429 ||
+          /503|unavailable|429|rate limit|resource exhausted/i.test(err.message || '')
+        );
+
+        if (isTransient && attempts < maxAttempts) {
+          retriesAttempted++;
+          console.warn(`[IntakeAgent] Transient error on attempt ${attempts} (${err.message}). Retrying in ${delayMs}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, delayMs));
+          delayMs += 500; // slightly increase delay (e.g. 1.0s, 1.5s, etc.)
+        } else {
+          if (retriesAttempted > 0) {
+            throw new Error(`${err.message || 'Unknown error'} (Retries attempted before fallback: ${retriesAttempted})`);
+          }
+          throw err;
+        }
+      }
+    }
+
+    const responseText = response?.text;
     if (!responseText) {
       throw new Error('Gemini API returned an empty response.');
     }
