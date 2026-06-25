@@ -6,7 +6,7 @@ import firebaseConfig from '../firebase-applet-config.json';
 // Initialize Firebase client-side or server-side (using the same config)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 const auth = getAuth(app);
-const db = getFirestore(app);
+const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 
 // Google Sign-In Provider
 const googleProvider = new GoogleAuthProvider();
