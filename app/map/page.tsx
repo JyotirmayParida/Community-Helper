@@ -118,6 +118,11 @@ export default function MapPage() {
       // Import Leaflet dynamically to avoid server-side build issues
       const L = await import('leaflet');
 
+      // Avoid default icon split errors on undefined styles
+      if (L.Icon?.Default) {
+        L.Icon.Default.imagePath = 'https://unpkg.com/leaflet@1.9.4/dist/images/';
+      }
+
       // If map is already initialized, reuse it, otherwise construct it
       if (!mapRef.current) {
         // Center of San Francisco as default viewport anchor

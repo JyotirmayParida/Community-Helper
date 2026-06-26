@@ -1,6 +1,6 @@
 {
   "name": "Community Hero",
   "description": "A citizen issue reporting platform.",
-  "requestFramePermissions": [],
+  "requestFramePermissions": ["geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

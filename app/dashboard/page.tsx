@@ -28,7 +28,13 @@ export default function DashboardPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [globalReports, setGlobalReports] = useState<Report[]>([]);
   const [loadingData, setLoadingData] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'my-reports' | 'platform-overview'>('my-reports');
+  const [activeTab, setActiveTab] = useState<'my-reports' | 'community-impact'>('my-reports');
+
+  // Escalation and Insight states
+  const [checkingEscalations, setCheckingEscalations] = useState<boolean>(false);
+  const [escalationSummary, setEscalationSummary] = useState<string | null>(null);
+  const [predictiveInsight, setPredictiveInsight] = useState<string>('');
+  const [loadingInsight, setLoadingInsight] = useState<boolean>(false);
 
   const fetchData = React.useCallback(async () => {
     if (!user) return;
@@ -58,18 +64,59 @@ export default function DashboardPage() {
     }
   }, [user]);
 
+  const fetchInsight = React.useCallback(async () => {
+    setLoadingInsight(true);
+    try {
+      const res = await fetch('/api/insights');
+      if (res.ok) {
+        const data = await res.json();
+        setPredictiveInsight(data.insight || 'No insights available.');
+      } else {
+        setPredictiveInsight('Insights are temporarily unavailable');
+      }
+    } catch (err) {
+      console.error('Error fetching predictive insights:', err);
+      setPredictiveInsight('Insights are temporarily unavailable');
+    } finally {
+      setLoadingInsight(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (user) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchData();
+      fetchInsight();
     }
-  }, [user, fetchData]);
+  }, [user, fetchData, fetchInsight]);
+
+  const handleCheckEscalations = async () => {
+    setCheckingEscalations(true);
+    setEscalationSummary(null);
+    try {
+      const res = await fetch('/api/escalations/check', { method: 'POST' });
+      if (res.ok) {
+        const data = await res.json();
+        setEscalationSummary(data.message || 'Escalations checked successfully.');
+        await fetchData();
+        setTimeout(() => setEscalationSummary(null), 6000);
+      } else {
+        const data = await res.json();
+        setEscalationSummary(`Error: ${data.error || 'Check failed'}`);
+      }
+    } catch (err) {
+      console.error('Failed to check escalations:', err);
+      setEscalationSummary('Failed to contact escalation checker.');
+    } finally {
+      setCheckingEscalations(false);
+    }
+  };
 
   if (authLoading) {
     return (
       <div className="py-24 flex flex-col items-center justify-center gap-2 bg-[#FAF9F6]">
         <div className="w-8 h-8 rounded-full border-2 border-stone-400 border-t-stone-800 animate-spin" />
-        <span className="text-xs font-mono tracking-wider text-stone-500 uppercase">Synchronizing Live Logs...</span>
+         <span className="text-xs font-mono tracking-wider text-stone-500 uppercase">Synchronizing Live Logs...</span>
       </div>
     );
   }
@@ -91,15 +138,36 @@ export default function DashboardPage() {
     );
   }
 
-  // Derived statistics
+  // Personal statistics
   const totalUserReports = reports.length;
   const highSeverityUserReports = reports.filter((r) => r.severity === 'HIGH' || r.severity === 'SEVERE').length;
   const resolvedUserReports = reports.filter((r) => r.status === 'resolved').length;
 
+  // Community-wide aggregate statistics
+  const totalGlobalReports = globalReports.length;
+  const resolvedGlobalReports = globalReports.filter((r) => r.status === 'resolved').length;
+  const resolutionRate = totalGlobalReports > 0
+    ? Math.round((resolvedGlobalReports / totalGlobalReports) * 100)
+    : 0;
+
+  // Breakdown of open reports by category and department
+  const openGlobalReports = globalReports.filter((r) => r.status !== 'resolved');
+  
+  const categoryBreakdown: Record<string, number> = {};
+  const departmentBreakdown: Record<string, number> = {};
+
+  openGlobalReports.forEach((r) => {
+    const cat = r.category || 'Uncategorized';
+    categoryBreakdown[cat] = (categoryBreakdown[cat] || 0) + 1;
+
+    const dept = r.department || 'AWAITING DISPATCH';
+    departmentBreakdown[dept] = (departmentBreakdown[dept] || 0) + 1;
+  });
+
   return (
     <div className="max-w-6xl mx-auto space-y-8">
       {/* Page Title Plaque */}
-      <div className="border-b border-[#1C1A17] pb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="border-b border-[#1C1A17] pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-stone-600">
             <BarChart3 className="w-5 h-5 text-[#1C1A17]" />
@@ -109,14 +177,29 @@ export default function DashboardPage() {
             Municipal Status Board
           </h2>
         </div>
-        <button
-          onClick={fetchData}
-          disabled={loadingData}
-          className="px-4 py-2 font-mono text-xs border border-[#1C1A17] bg-[#FAF9F6] text-[#1C1A17] hover:bg-stone-100 rounded-sm active:translate-y-px transition-all shadow-[2px_2px_0px_0px_#1C1A17] flex items-center gap-1.5 uppercase cursor-pointer"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? 'animate-spin' : ''}`} />
-          <span>Refresh Ledger</span>
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {escalationSummary && (
+            <div className="px-3 py-1.5 bg-[#F4F3EF] border border-[#1C1A17] font-mono text-[9px] uppercase text-[#1C1A17] rounded-sm animate-pulse">
+              {escalationSummary}
+            </div>
+          )}
+          <button
+            onClick={handleCheckEscalations}
+            disabled={checkingEscalations}
+            className="px-4 py-2 font-mono text-xs border border-[#1C1A17] bg-[#1C1A17] text-[#FAF9F6] hover:bg-stone-800 rounded-sm active:translate-y-px transition-all shadow-[2px_2px_0px_0px_#1C1A17] flex items-center gap-1.5 uppercase cursor-pointer"
+          >
+            <Shield className={`w-3.5 h-3.5 ${checkingEscalations ? 'animate-pulse' : ''}`} />
+            <span>{checkingEscalations ? 'Checking...' : 'Check for Escalations'}</span>
+          </button>
+          <button
+            onClick={fetchData}
+            disabled={loadingData}
+            className="px-4 py-2 font-mono text-xs border border-[#1C1A17] bg-[#FAF9F6] text-[#1C1A17] hover:bg-stone-100 rounded-sm active:translate-y-px transition-all shadow-[2px_2px_0px_0px_#1C1A17] flex items-center gap-1.5 uppercase cursor-pointer"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loadingData ? 'animate-spin' : ''}`} />
+            <span>Refresh Ledger</span>
+          </button>
+        </div>
       </div>
 
       {/* Editorial Overview Cards Grid */}
@@ -175,14 +258,14 @@ export default function DashboardPage() {
           My Reports Timeline ({totalUserReports})
         </button>
         <button
-          onClick={() => setActiveTab('platform-overview')}
+          onClick={() => setActiveTab('community-impact')}
           className={`px-4 py-2 font-mono text-xs uppercase tracking-wider border border-[#1C1A17] border-b-0 rounded-t-sm transition-all cursor-pointer ${
-            activeTab === 'platform-overview'
+            activeTab === 'community-impact'
               ? 'bg-[#FAF9F6] font-bold text-[#1C1A17] translate-y-px z-10'
               : 'bg-stone-200/60 text-stone-500 hover:bg-stone-100 hover:text-stone-800'
           }`}
         >
-          Platform Overview
+          Community Impact Dashboard
         </button>
       </div>
 
@@ -375,50 +458,115 @@ export default function DashboardPage() {
           )}
         </div>
       ) : (
-        /* Platform Overview Tab Content */
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-4 space-y-6">
-            {/* Platform Metrics Card */}
-            <div className="border border-[#1C1A17] p-6 bg-[#FAF9F6] rounded-sm shadow-[3px_3px_0px_0px_#1C1A17] space-y-4">
-              <h3 className="font-serif text-xl font-bold uppercase tracking-tight border-b border-[#1C1A17]/10 pb-2">
-                Municipal Records
-              </h3>
-              
-              <div className="space-y-3 font-mono text-xs">
-                <div className="flex justify-between py-1 border-b border-stone-100">
-                  <span className="text-stone-500 uppercase">Platform Wide Reports</span>
-                  <span className="font-bold text-stone-800">{globalReports.length}</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-stone-100">
-                  <span className="text-stone-500 uppercase">Total active verifiers</span>
-                  <span className="font-bold text-stone-800">14 active citizens</span>
-                </div>
-                <div className="flex justify-between py-1 border-b border-stone-100">
-                  <span className="text-stone-500 uppercase">Average Resolution Time</span>
-                  <span className="font-bold text-stone-800">4.2 hours</span>
-                </div>
+        /* Community Impact Tab Content */
+        <div className="space-y-8 animate-fadeIn">
+          {/* Predictive Insight Box */}
+          <div className="border border-[#1C1A17] p-6 bg-[#F4F3EF] rounded-sm shadow-[4px_4px_0px_0px_#1C1A17] space-y-3">
+            <div className="flex items-center gap-2 border-b border-[#1C1A17]/10 pb-2">
+              <Info className="w-4.5 h-4.5 text-[#1C1A17]" />
+              <h4 className="font-mono text-xs uppercase font-bold tracking-widest text-[#1C1A17]">
+                Predictive AI Civic Insight
+              </h4>
+            </div>
+            {loadingInsight ? (
+              <div className="flex items-center gap-2.5 py-1.5">
+                <div className="w-4 h-4 rounded-full border-2 border-stone-400 border-t-stone-800 animate-spin" />
+                <span className="text-xs font-mono uppercase tracking-widest text-stone-500 animate-pulse">Running municipal intelligence core...</span>
+              </div>
+            ) : (
+              <p className="font-serif italic text-sm sm:text-base text-stone-800 leading-relaxed">
+                &ldquo;{predictiveInsight || 'No critical trend patterns identified in recent civic metrics.'}&rdquo;
+              </p>
+            )}
+          </div>
+
+          {/* Citywide Aggregate Stats Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="border border-[#1C1A17] p-5 bg-[#FAF9F6] rounded-sm shadow-[3px_3px_0px_0px_#1C1A17] space-y-1">
+              <span className="font-mono text-[10px] uppercase text-stone-500 tracking-wider">Citywide Reports Filed</span>
+              <div className="flex items-baseline justify-between">
+                <span className="font-serif text-3xl font-black">{totalGlobalReports}</span>
+                <span className="text-xs font-mono text-stone-400 uppercase">all-time</span>
               </div>
             </div>
 
-            {/* Verification Incentive Callout */}
-            <div className="border border-[#1C1A17] p-6 bg-[#FAF9F6] rounded-sm shadow-[3px_3px_0px_0px_#1C1A17] space-y-4">
-              <h3 className="font-serif text-lg font-bold italic text-stone-800">
-                Community Verification Initiative
-              </h3>
-              <p className="text-xs text-stone-600 leading-relaxed">
-                A robust municipal network relies on crowdsourced verification. Visit the Public Map to cross-reference neighborhood hazard locations and confirm active incidents to help prioritize dispatch routes!
-              </p>
-              <Link
-                href="/map"
-                className="inline-flex items-center gap-1 font-mono text-xs text-stone-800 font-bold hover:underline uppercase"
-              >
-                <span>Navigate to Map</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
+            <div className="border border-[#1C1A17] p-5 bg-[#FAF9F6] rounded-sm shadow-[3px_3px_0px_0px_#1C1A17] space-y-1">
+              <span className="font-mono text-[10px] uppercase text-stone-500 tracking-wider">Resolved Incidents</span>
+              <div className="flex items-baseline justify-between">
+                <span className="font-serif text-3xl font-black text-emerald-700">{resolvedGlobalReports}</span>
+                <span className="text-xs font-mono text-emerald-600 uppercase">dispatched</span>
+              </div>
+            </div>
+
+            <div className="border border-[#1C1A17] p-5 bg-[#FAF9F6] rounded-sm shadow-[3px_3px_0px_0px_#1C1A17] space-y-1">
+              <span className="font-mono text-[10px] uppercase text-stone-500 tracking-wider">Overall Resolution Rate</span>
+              <div className="flex items-baseline justify-between">
+                <span className="font-serif text-3xl font-black text-amber-700">{resolutionRate}%</span>
+                <span className="text-xs font-mono text-amber-600 uppercase">efficiency</span>
+              </div>
             </div>
           </div>
 
-          <div className="lg:col-span-8 border border-[#1C1A17] bg-[#FAF9F6] rounded-sm p-6 shadow-[4px_4px_0px_0px_#1C1A17] space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Category Breakdown Card */}
+            <div className="lg:col-span-6 border border-[#1C1A17] p-6 bg-[#FAF9F6] rounded-sm shadow-[3px_3px_0px_0px_#1C1A17] space-y-4">
+              <h3 className="font-serif text-lg font-black uppercase tracking-tight border-b border-[#1C1A17]/10 pb-2">
+                Open Reports by Category
+              </h3>
+              {Object.keys(categoryBreakdown).length === 0 ? (
+                <p className="text-xs font-mono text-stone-400 uppercase italic py-4">All registered categories are clear.</p>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(categoryBreakdown).map(([category, count]) => {
+                    const totalOpen = openGlobalReports.length;
+                    const percent = totalOpen > 0 ? Math.round((count / totalOpen) * 100) : 0;
+                    return (
+                      <div key={category} className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-mono">
+                          <span className="uppercase font-bold text-stone-700">{category}</span>
+                          <span className="text-stone-500">{count} open ({percent}%)</span>
+                        </div>
+                        <div className="w-full bg-stone-100 h-2 border border-[#1C1A17]/10 rounded-sm overflow-hidden">
+                          <div className="bg-[#1C1A17] h-full transition-all duration-300" style={{ width: `${percent}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Department Breakdown Card */}
+            <div className="lg:col-span-6 border border-[#1C1A17] p-6 bg-[#FAF9F6] rounded-sm shadow-[3px_3px_0px_0px_#1C1A17] space-y-4">
+              <h3 className="font-serif text-lg font-black uppercase tracking-tight border-b border-[#1C1A17]/10 pb-2">
+                Open Reports by Department
+              </h3>
+              {Object.keys(departmentBreakdown).length === 0 ? (
+                <p className="text-xs font-mono text-stone-400 uppercase italic py-4">All municipal departments are currently clear.</p>
+              ) : (
+                <div className="space-y-4">
+                  {Object.entries(departmentBreakdown).map(([dept, count]) => {
+                    const totalOpen = openGlobalReports.length;
+                    const percent = totalOpen > 0 ? Math.round((count / totalOpen) * 100) : 0;
+                    return (
+                      <div key={dept} className="space-y-1.5">
+                        <div className="flex justify-between text-xs font-mono">
+                          <span className="uppercase font-bold text-stone-700">{dept}</span>
+                          <span className="text-stone-500">{count} open ({percent}%)</span>
+                        </div>
+                        <div className="w-full bg-stone-100 h-2 border border-[#1C1A17]/10 rounded-sm overflow-hidden">
+                          <div className="bg-stone-600 h-full transition-all duration-300" style={{ width: `${percent}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Active dispatches logs */}
+          <div className="border border-[#1C1A17] bg-[#FAF9F6] rounded-sm p-6 shadow-[4px_4px_0px_0px_#1C1A17] space-y-4">
             <h3 className="font-serif text-xl font-black uppercase tracking-tight border-b border-[#1C1A17]/10 pb-3">
               Active Municipal Dispatches
             </h3>
@@ -429,7 +577,7 @@ export default function DashboardPage() {
               <p className="text-center py-12 text-stone-400 font-serif italic text-sm">No active municipal dispatches registered.</p>
             ) : (
               <div className="divide-y divide-stone-100 font-sans">
-                {globalReports.slice(0, 8).map((report) => {
+                {globalReports.slice(0, 10).map((report) => {
                   const color = SEVERITY_COLORS[report.severity as keyof typeof SEVERITY_COLORS] || '#10B981';
                   return (
                     <div key={report.id} className="py-3 flex items-center justify-between gap-4 text-xs">
@@ -465,3 +613,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
