@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const statusParam = searchParams.get('status');
+    const citizenIdParam = searchParams.get('citizenId');
     const latParam = searchParams.get('lat');
     const lngParam = searchParams.get('lng');
     const radiusParam = searchParams.get('radius'); // in km
@@ -34,6 +35,10 @@ export async function GET(req: NextRequest) {
 
     if (statusParam) {
       queryRef = queryRef.where('status', '==', statusParam);
+    }
+
+    if (citizenIdParam) {
+      queryRef = queryRef.where('citizenId', '==', citizenIdParam);
     }
 
     const snapshot = await queryRef.get();

@@ -14,6 +14,7 @@ export interface Report {
   department: string | null;
   priority: string | null;
   history: Array<{ status: string; timestamp: string; note: string }>;
+  confirmations?: string[];
   createdAt: string;
   updatedAt: string;
 }
