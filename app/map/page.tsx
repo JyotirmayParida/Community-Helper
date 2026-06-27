@@ -117,6 +117,8 @@ export default function MapPage() {
 
       // Import Leaflet dynamically to avoid server-side build issues
       const L = await import('leaflet');
+      (window as any).L = L;
+      await import('leaflet.markercluster');
 
       // Avoid default icon split errors on undefined styles
       if (L.Icon?.Default) {
@@ -149,9 +151,36 @@ export default function MapPage() {
         activeMap = mapRef.current;
       }
 
-      // Clear existing markers
-      markersRef.current.forEach((marker) => marker.remove());
+      // Clear existing markers or groups
+      markersRef.current.forEach((item) => {
+        if (item && typeof item.remove === 'function') {
+          item.remove();
+        } else if (item && activeMap) {
+          activeMap.removeLayer(item);
+        }
+      });
       markersRef.current = [];
+
+      // Create beautiful custom marker cluster group
+      const clusterGroup = (L as any).markerClusterGroup({
+        showCoverageOnHover: false,
+        spiderfyOnMaxZoom: true,
+        zoomToBoundsOnClick: true,
+        maxClusterRadius: 40,
+        iconCreateFunction: (cluster: any) => {
+          const count = cluster.getChildCount();
+          return L.divIcon({
+            html: `
+              <div class="relative flex items-center justify-center w-10 h-10 rounded-full border border-[#1C1A17] bg-[#1C1A17] text-[#FAF9F6] shadow-[2px_2px_0px_0px_#FAF9F6] font-mono text-xs font-bold hover:scale-105 transition-transform duration-200 cursor-pointer">
+                <span>${count}</span>
+              </div>
+            `,
+            className: 'custom-cluster-icon',
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+          });
+        }
+      });
 
       // Add pins for all reports
       if (reports.length > 0) {
@@ -238,12 +267,15 @@ export default function MapPage() {
             .bindPopup(popupContent, {
               maxWidth: 260,
               className: 'editorial-popup',
-            })
-            .addTo(activeMap);
+            });
 
-          markersRef.current.push(marker);
+          clusterGroup.addLayer(marker);
           bounds.push([report.geo.lat, report.geo.lng]);
         });
+
+        // Add cluster group to map
+        activeMap.addLayer(clusterGroup);
+        markersRef.current.push(clusterGroup);
 
         // Fit map bounds to encompass all pins if there are any
         if (bounds.length > 0 && activeMap) {
