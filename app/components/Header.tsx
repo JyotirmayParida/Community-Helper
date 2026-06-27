@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -9,6 +9,21 @@ import { LogOut, Shield, Award, Map, PenSquare, BarChart3, HelpCircle } from 'lu
 export default function Header() {
   const { user, profile, signInWithGoogle, logout, loading } = useAuth();
   const pathname = usePathname();
+  const [formattedDate, setFormattedDate] = useState<string>('');
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFormattedDate(
+        new Date().toLocaleDateString('en-US', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        })
+      );
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const navItems = [
     { name: 'Report Issue', href: '/report', icon: PenSquare },
@@ -24,7 +39,7 @@ export default function Header() {
         <div className="hidden sm:block text-center font-serif italic text-stone-500">
           &ldquo;A Vigilant Citizenry is the Cornerstone of the Commonwealth&rdquo;
         </div>
-        <div>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</div>
+        <div>{formattedDate}</div>
       </div>
 
       {/* Main Masthead */}
