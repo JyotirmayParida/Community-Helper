@@ -14,5 +14,5 @@ if (apps.length === 0) {
   app = getApp();
 }
 
-export const adminDb = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const adminDb = getFirestore(app);
 export const adminAuth = getAuth(app);

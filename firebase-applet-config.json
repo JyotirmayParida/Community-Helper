@@ -1,10 +1,9 @@
 {
-  "projectId": "crested-receiver-v9ffs",
-  "appId": "1:549018870931:web:8108753b61c34d23581966",
-  "apiKey": "AIzaSyD31jIWfU2tjcHHmdK1OXGbtRGwGQPwI9g",
-  "authDomain": "crested-receiver-v9ffs.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-81e80166-3fd3-4062-b7aa-c2d8888c7c39",
-  "storageBucket": "crested-receiver-v9ffs.firebasestorage.app",
-  "messagingSenderId": "549018870931",
+  "apiKey": "AIzaSyA-MEa_MLXRS3txGk94iMtrxg6Xgb_rk4w",
+  "authDomain": "gen-lang-client-0420047833.firebaseapp.com",
+  "projectId": "gen-lang-client-0420047833",
+  "storageBucket": "gen-lang-client-0420047833.firebasestorage.app",
+  "messagingSenderId": "808815666061",
+  "appId": "1:808815666061:web:586bb30ab8958d089a93c4",
   "measurementId": ""
 }
