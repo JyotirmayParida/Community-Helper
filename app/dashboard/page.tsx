@@ -36,6 +36,11 @@ export default function DashboardPage() {
   const [predictiveInsight, setPredictiveInsight] = useState<string>('');
   const [loadingInsight, setLoadingInsight] = useState<boolean>(false);
 
+  // Sort user reports by createdAt in descending order (most recent first)
+  const sortedReports = React.useMemo(() => {
+    return [...reports].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [reports]);
+
   const fetchData = React.useCallback(async () => {
     if (!user) return;
     // defer state change to prevent synchronous setState inside useEffect warnings
@@ -293,7 +298,7 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-6">
-              {reports.map((report) => {
+              {sortedReports.map((report) => {
                 const color = SEVERITY_COLORS[report.severity as keyof typeof SEVERITY_COLORS] || '#10B981';
                 const confirmCount = report.confirmations?.length || 0;
 
