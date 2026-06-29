@@ -26,10 +26,10 @@ export default function Home() {
           Community Bulletin
         </div>
         <h2 className="font-serif text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight">
-          Restoring Order to Our Shared Spaces
+          Small Reports. Big Change.
         </h2>
         <p className="font-serif text-lg sm:text-xl italic text-stone-600 max-w-2xl mx-auto">
-          &ldquo;A unified, autonomous pipeline connecting civil reports directly to municipal action departments.&rdquo;
+          &ldquo;Every report you send goes straight to the people who can actually fix it.&rdquo;
         </p>
       </section>
 
