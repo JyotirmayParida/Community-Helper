@@ -40,14 +40,30 @@ export default function Home() {
         <div className="lg:col-span-2 space-y-8 border-r border-[#1C1A17]/10 pr-0 lg:pr-8">
           <div className="space-y-4">
             <h3 className="font-serif text-2xl font-bold border-b border-[#1C1A17] pb-2 uppercase tracking-wide">
-              The Sovereign System
+              How It Works.
             </h3>
-            <p className="font-sans text-stone-800 leading-relaxed text-sm">
-              Community Hero bridges the gap between civic vigilance and prompt governance. Using a 
-              state-of-the-art multi-agent backend, every issue submitted by a citizen is immediately processed, 
-              categorized, checked for spatial duplication, routed to correct municipal divisions, and monitored 
-              for priority escalation.
-            </p>
+            <ul className="space-y-3 font-sans text-stone-800 text-sm">
+              <li className="flex items-start gap-2">
+                <span className="font-mono text-stone-500 font-bold select-none">--&gt;</span>
+                <span>Snap a photo of any issue you spot</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="font-mono text-stone-500 font-bold select-none">--&gt;</span>
+                <span>AI figures out what it is, instantly</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="font-mono text-stone-500 font-bold select-none">--&gt;</span>
+                <span>It&apos;s sent straight to the right department</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="font-mono text-stone-500 font-bold select-none">--&gt;</span>
+                <span>Track it from reported to resolved</span>
+              </li>
+              <li className="flex items-start gap-2">
+                <span className="font-mono text-stone-500 font-bold select-none">--&gt;</span>
+                <span>Your neighbors benefit too</span>
+              </li>
+            </ul>
           </div>
 
           {/* Core Pipeline Demonstration */}
