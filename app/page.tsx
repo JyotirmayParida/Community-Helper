@@ -154,9 +154,9 @@ export default function Home() {
                         </span>
                       </div>
                       <div className="bg-[#F4F3EF] p-2 rounded-sm border border-stone-200">
-                        <span className="text-stone-500 block">SECURITY ROLE</span>
-                        <span className="text-sm font-bold text-[#1C1A17] block uppercase mt-1">
-                          {profile.role}
+                        <span className="text-stone-500 block">MEMBER ROLE</span>
+                        <span className="text-sm font-bold text-[#1C1A17] block mt-1">
+                          {profile.role === 'citizen' ? 'Member' : profile.role}
                         </span>
                       </div>
                     </div>

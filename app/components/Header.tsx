@@ -60,14 +60,10 @@ export default function Header() {
           ) : user ? (
             <div className="flex items-center gap-3 bg-[#FAF9F6] border border-[#1C1A17] p-2 rounded-sm shadow-[2px_2px_0px_0px_#1C1A17]">
               {profile && (
-                <div className="flex items-center gap-2 border-r border-[#1C1A17]/10 pr-3 mr-1 text-xs">
+                <div className="flex items-center border-r border-[#1C1A17]/10 pr-3 mr-1 text-xs">
                   <div className="flex items-center gap-1 font-mono text-stone-700">
                     <Award className="w-3.5 h-3.5 text-stone-800" />
                     <span>{profile.points} pts</span>
-                  </div>
-                  <div className="flex items-center gap-1 font-mono uppercase bg-[#1C1A17] text-[#FAF9F6] px-1.5 py-0.5 rounded-[2px] text-[10px]">
-                    <Shield className="w-3 h-3" />
-                    <span>{profile.role}</span>
                   </div>
                 </div>
               )}
